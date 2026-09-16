@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { test, expect, type Locator, type Page } from "@playwright/test";
+import { SessionsPage } from "./pages/sessions-page";
 
 const LOC = {
   sessionItem: ".session-item",
@@ -62,8 +63,7 @@ test.describe("Mixed content rendering", () => {
   test.describe.configure({ timeout: COLD_WEBKIT_TEST_TIMEOUT_MS });
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/sessions");
-    await expect(page.locator(LOC.sessionItem).first()).toBeVisible({ timeout: 5_000 });
+    await new SessionsPage(page).goto();
   });
 
   test("tool group renders for consecutive tool-only messages", async ({ page }) => {
