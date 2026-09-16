@@ -632,6 +632,9 @@ func fetchHTTPDailyUsage(
 			if requestErr != nil {
 				return db.DailyUsageResult{}, requestErr
 			}
+			if len(response.Body) == 0 {
+				return db.DailyUsageResult{}, io.ErrUnexpectedEOF
+			}
 			out = *response.JSON200
 		}
 	}
