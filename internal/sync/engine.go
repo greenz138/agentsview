@@ -11864,7 +11864,10 @@ func (e *Engine) processProviderFile(
 	// engine). For Codex this also folds in the session_index.jsonl sidecar:
 	// a shared index mtime bump that did not change this session's title must
 	// not trigger a reparse.
-	if !forceSourceCwdParse && !incForceReplace && !e.forceParseRequested(file) {
+	// A rejected checkpoint forbids resuming from its cursor, but does not
+	// invalidate a matching full-source hash. In particular, device numbers
+	// can change across boots without changing the transcript.
+	if !forceSourceCwdParse && (!incForceReplace || codexForceFullParse) && !e.forceParseRequested(file) {
 		dbFresh, metadataVerified := e.providerSourceFreshnessByDB(
 			file, fingerprint, providerSemantics,
 		)
