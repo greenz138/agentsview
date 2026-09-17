@@ -50,10 +50,10 @@ func parseCodeBuddySession(indexPath, projectHint, machine string) (*ParsedSessi
 	if !gjson.ValidBytes(indexBytes) {
 		return nil, nil, fmt.Errorf("invalid CodeBuddy session manifest")
 	}
-	msgRefs := indexRoot.Get("messages").Array()
-	if len(msgRefs) == 0 {
-		return nil, nil, nil
+	if !indexRoot.IsObject() || !indexRoot.Get("messages").IsArray() {
+		return nil, nil, fmt.Errorf("invalid CodeBuddy session manifest: messages must be an array")
 	}
+	msgRefs := indexRoot.Get("messages").Array()
 
 	var (
 		messages      []ParsedMessage
@@ -186,10 +186,6 @@ func parseCodeBuddySession(indexPath, projectHint, machine string) (*ParsedSessi
 			})
 			ordinal++
 		}
-	}
-
-	if len(messages) == 0 {
-		return nil, nil, nil
 	}
 
 	project := projectHint

@@ -2698,7 +2698,12 @@ schemas keep their existing ordering behavior.
   workspace metadata changes, and deleted message events. Sync regression
   fixtures in `internal/sync/codebuddy_integration_test.go` also verify that
   equal-size rewrites with restored modification times invalidate both stored
-  freshness and warm skip caches through the composite content hash. These
+  freshness and warm skip caches through the composite content hash. Valid
+  manifests with no readable messages produce an empty session replacement,
+  clearing previously stored messages. Invalid JSON or a missing/non-array
+  `messages` field is a parse error and preserves the archive. Integration
+  fixtures cover empty manifests, deleted or invalid message files, and invalid
+  manifests after an initial import. These
   fixtures do not independently establish producer counter semantics. The
   original local artifact observation above has no pinned producer version; whether thinking
   snapshots are cumulative and which releases include cached input in the input

@@ -73,3 +73,56 @@ func TestSyncCodeBuddySameSizeSameMtimeRewrite(t *testing.T) {
 		}
 	}
 }
+
+func TestSyncCodeBuddyEmptyReplacement(t *testing.T) {
+	for _, tc := range []struct {
+		name, manifest, message string
+		remove, preserve        bool
+	}{
+		{name: "empty manifest", manifest: `{"messages":[]}`},
+		{name: "deleted message", remove: true},
+		{name: "invalid message", message: `{`},
+		{name: "broken manifest", manifest: `{`, preserve: true},
+		{name: "missing messages", manifest: `{}`, preserve: true},
+		{name: "null messages", manifest: `{"messages":null}`, preserve: true},
+		{name: "object messages", manifest: `{"messages":{}}`, preserve: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			dir := filepath.Join(root, "history", "ws_test", "conv_test")
+			require.NoError(t, os.MkdirAll(filepath.Join(dir, "messages"), 0o755))
+			index := filepath.Join(dir, "index.json")
+			message := filepath.Join(dir, "messages", "u1.json")
+			require.NoError(t, os.WriteFile(index, []byte(`{"messages":[{"id":"u1"}]}`), 0o600))
+			require.NoError(t, os.WriteFile(message, []byte(`{"role":"user","message":{"content":[{"type":"text","text":"keep until cleared"}]}}`), 0o600))
+			database := openTestDB(t)
+			engine := NewEngine(database, EngineConfig{AgentDirs: map[parser.AgentType][]string{parser.AgentCodeBuddy: {root}}, Machine: "test"})
+			t.Cleanup(engine.Close)
+			require.Equal(t, 1, engine.SyncAll(t.Context(), nil).Synced)
+			engine.SyncAll(t.Context(), nil)
+			if tc.manifest != "" {
+				require.NoError(t, os.WriteFile(index, []byte(tc.manifest), 0o600))
+			}
+			if tc.remove {
+				require.NoError(t, os.Remove(message))
+			} else if tc.message != "" {
+				require.NoError(t, os.WriteFile(message, []byte(tc.message), 0o600))
+			}
+			engine.SyncAll(t.Context(), nil)
+			msgs, err := database.GetMessages(t.Context(), "codebuddy:conv_test", 0, 100, true)
+			require.NoError(t, err)
+			sess, err := database.GetSessionFull(t.Context(), "codebuddy:conv_test")
+			require.NoError(t, err)
+			require.NotNil(t, sess)
+			if tc.preserve {
+				require.Len(t, msgs, 1)
+				assert.Equal(t, "keep until cleared", msgs[0].Content)
+				assert.Equal(t, 1, sess.MessageCount)
+			} else {
+				assert.Empty(t, msgs)
+				assert.Zero(t, sess.MessageCount)
+				assert.Zero(t, sess.UserMessageCount)
+			}
+		})
+	}
+}
