@@ -1272,6 +1272,8 @@ func providerFactoryForDef(def AgentDef) ProviderFactory {
 		return newWarpProviderFactory(def)
 	case AgentWorkBuddy:
 		return newWorkBuddyProviderFactory(def)
+	case AgentCodeBuddy:
+		return newCodeBuddyProviderFactory(def)
 	case AgentZencoder:
 		return newZencoderProviderFactory(def)
 	case AgentZed:

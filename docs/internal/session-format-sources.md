@@ -2676,6 +2676,16 @@ schemas keep their existing ordering behavior.
   `internal/parser/workbuddy_provider.go`; counter semantics are
   implementation evidence.
 
+## CodeBuddy (`codebuddy`)
+
+- **Format:** Hierarchical session manifest (`index.json`) and individual message files (`messages/*.json`).
+- **Evidence:** `no-public-source`.
+- **Upstream:** Tencent CodeBuddy's product site and public repositories were searched 2026-09-17; no authoritative persistence producer or versioned schema is publicly published. Storage format and accounting semantics were verified against local Tencent CodeBuddy IDE and CodeBuddyExtension session data under `CodeBuddyExtension/Data/history`.
+- **Usage and cost:** Usage contains `lastStepInputTokens`, `lastStepOutputTokens`, `lastStepCachedInputTokens`, and `thinkingTokens`. Uncached input subtracts cache reads, and reasoning tokens are tracked separately. Monetary cost is catalog-derived.
+- **Agentsview:** `internal/parser/codebuddy.go` and
+  `internal/parser/codebuddy_provider.go`; counter semantics are
+  implementation evidence.
+
 ## Zencoder (`zencoder`)
 
 - **Format:** Per-session JSONL transcripts.

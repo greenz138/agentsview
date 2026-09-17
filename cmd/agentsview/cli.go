@@ -941,6 +941,7 @@ func writeRootHelp(w io.Writer, root *cobra.Command) {
 	fmt.Fprintln(w, "  DSH_HOME                DeepSeek Harness home directory")
 	fmt.Fprintln(w, "  QCLAW_DIR               QClaw agents directory")
 	fmt.Fprintln(w, "  WORKBUDDY_PROJECTS_DIR  WorkBuddy projects directory")
+	fmt.Fprintln(w, "  CODEBUDDY_DIR           CodeBuddy data directory")
 	fmt.Fprintln(w, "  PIEBALD_DIR             Piebald data directory")
 	fmt.Fprintln(w, "  AGENTSVIEW_DATA_DIR     Data directory (database, config)")
 	fmt.Fprintln(w, "  AGENTSVIEW_PG_URL       PostgreSQL connection URL for sync")

@@ -461,6 +461,7 @@ keeps its default directories.
 | TraeX (TRAE CLI)      | `~/.trae/cli/sessions/` and `~/.trae/cli/archived_sessions/`                                                                                                     | Codex-compatible rollout JSONL per session                                                                                                                    |
 | Warp                  | (platform-specific, see below)                                                                                                                                   | SQLite database                                                                                                                                               |
 | WorkBuddy             | `~/.workbuddy/projects/`                                                                                                                                         | JSONL per session                                                                                                                                             |
+| CodeBuddy             | (platform-specific, see below)                                                                                                                                   | Hierarchical session JSON manifest (`index.json`) and message files (`messages/*.json`)                                      |
 | ZCode                 | `~/.zcode/cli/db/` or `~/.zcode/cli/`                                                                                                                            | SQLite database (`db.sqlite`) with usage rows                                                                                                                 |
 | Zed                   | (platform-specific, see below)                                                                                                                                   | SQLite database (`threads/threads.db`)                                                                                                                        |
 | Zencoder              | `~/.zencoder/sessions/`                                                                                                                                          | JSONL per session                                                                                                                                             |
@@ -914,6 +915,7 @@ export VSCODE_COPILOT_DIR=~/custom/vscode
 export WINDSURF_DIR=~/custom/windsurf/User
 export WARP_DIR=~/custom/warp
 export WORKBUDDY_PROJECTS_DIR=~/custom/workbuddy
+export CODEBUDDY_DIR=~/custom/codebuddy
 export ZCODE_DIR=~/custom/zcode/cli
 export ZED_DIR=~/custom/zed
 export ZENCODER_DIR=~/custom/zencoder

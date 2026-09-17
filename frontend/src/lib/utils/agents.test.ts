@@ -51,6 +51,7 @@ describe("KNOWN_AGENTS", () => {
       "kiro-ide",
       "cortex",
       "workbuddy",
+      "codebuddy",
       "qoder",
       "piebald",
       "antigravity",
@@ -100,6 +101,7 @@ describe("agentColor", () => {
     expect(agentColor("visualstudio-copilot")).toBe("var(--accent-blue)");
     expect(agentColor("qclaw")).toBe("var(--accent-orange)");
     expect(agentColor("workbuddy")).toBe("var(--accent-violet)");
+    expect(agentColor("codebuddy")).toBe("var(--accent-blue)");
     expect(agentColor("piebald")).toBe("var(--accent-orange)");
     expect(agentColor("roocode")).toBe("var(--accent-rose)");
     expect(agentColor("omnigent")).toBe("var(--accent-teal)");
@@ -164,6 +166,7 @@ describe("agentLabel", () => {
     expect(agentLabel("iflow")).toBe("iFlow");
     expect(agentLabel("kimi-work")).toBe("Kimi Work");
     expect(agentLabel("workbuddy")).toBe("WorkBuddy");
+    expect(agentLabel("codebuddy")).toBe("CodeBuddy");
     expect(agentLabel("piebald")).toBe("Piebald");
     expect(agentLabel("zed")).toBe("Zed");
     expect(agentLabel("qwen")).toBe("Qwen Code");

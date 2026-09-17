@@ -57,6 +57,7 @@ const (
 	AgentGrok           AgentType = "grok"
 	AgentGoose          AgentType = "goose"
 	AgentWorkBuddy      AgentType = "workbuddy"
+	AgentCodeBuddy      AgentType = "codebuddy"
 	AgentForge          AgentType = "forge"
 	AgentDevin          AgentType = "devin"
 	AgentPiebald        AgentType = "piebald"
@@ -724,6 +725,15 @@ var Registry = []AgentDef{
 		ConfigKey:   "workbuddy_project_dirs",
 		DefaultDirs: []string{".workbuddy/projects"},
 		IDPrefix:    "workbuddy:",
+		FileBased:   true,
+	},
+	{
+		Type:        AgentCodeBuddy,
+		DisplayName: "CodeBuddy",
+		EnvVar:      "CODEBUDDY_DIR",
+		ConfigKey:   "codebuddy_dirs",
+		DefaultDirs: codebuddyDefaultDirs(),
+		IDPrefix:    "codebuddy:",
 		FileBased:   true,
 	},
 	{
