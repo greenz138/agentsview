@@ -2695,9 +2695,12 @@ schemas keep their existing ordering behavior.
 - **Verification boundary:** Parser behavior was reverified on 2026-09-17 with
   synthetic regression fixtures in `internal/parser/codebuddy_test.go`,
   including thinking-only and usage-only messages, composite fingerprints,
-  workspace metadata changes, and deleted message events. These fixtures do
-  not independently establish producer counter semantics. The original local
-  artifact observation above has no pinned producer version; whether thinking
+  workspace metadata changes, and deleted message events. Sync regression
+  fixtures in `internal/sync/codebuddy_integration_test.go` also verify that
+  equal-size rewrites with restored modification times invalidate both stored
+  freshness and warm skip caches through the composite content hash. These
+  fixtures do not independently establish producer counter semantics. The
+  original local artifact observation above has no pinned producer version; whether thinking
   snapshots are cumulative and which releases include cached input in the input
   counter remain unverified. Do not treat this as audited billing parity.
 - **Agentsview:** `internal/parser/codebuddy.go` and

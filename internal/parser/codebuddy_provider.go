@@ -186,6 +186,10 @@ func codeBuddyCompanionTranscript(companionPath string) (string, bool) {
 func codeBuddyProviderCapabilities() Capabilities {
 	return Capabilities{
 		Source: jsonlFileProviderSourceCapabilities(),
+		Sync: ProviderSyncSemantics{
+			FingerprintHashRequiredForFreshness: true,
+			FingerprintHashInCacheKey:           true,
+		},
 		Content: ContentCapabilities{
 			FirstMessage:         CapabilitySupported,
 			Cwd:                  CapabilitySupported,
