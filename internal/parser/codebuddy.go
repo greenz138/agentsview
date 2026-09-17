@@ -47,6 +47,9 @@ func parseCodeBuddySession(indexPath, projectHint, machine string) (*ParsedSessi
 	title, wsCreatedAt, modelHint := readCodeBuddyWorkspaceMetadata(wsDir, sessionID)
 
 	indexRoot := gjson.ParseBytes(indexBytes)
+	if !gjson.ValidBytes(indexBytes) {
+		return nil, nil, fmt.Errorf("invalid CodeBuddy session manifest")
+	}
 	msgRefs := indexRoot.Get("messages").Array()
 	if len(msgRefs) == 0 {
 		return nil, nil, nil
@@ -70,7 +73,8 @@ func parseCodeBuddySession(indexPath, projectHint, machine string) (*ParsedSessi
 	messagesDir := filepath.Join(sessionDir, "messages")
 	for _, ref := range msgRefs {
 		msgID := ref.Get("id").Str
-		if msgID == "" {
+		if !IsValidSessionID(msgID) {
+			malformed++
 			continue
 		}
 
@@ -100,6 +104,9 @@ func parseCodeBuddySession(indexPath, projectHint, machine string) (*ParsedSessi
 
 		extraStr := msgRoot.Get("extra").Str
 		extraRoot := gjson.Parse(extraStr)
+		if msgRoot.Get("extra").IsObject() {
+			extraRoot = msgRoot.Get("extra")
+		}
 		msgModel := extraRoot.Get("modelId").Str
 		if msgModel == "" {
 			msgModel = extraRoot.Get("modelName").Str
@@ -137,10 +144,7 @@ func parseCodeBuddySession(indexPath, projectHint, machine string) (*ParsedSessi
 			realUserCount++
 
 		case "assistant":
-			textContent, toolCalls := extractCodeBuddyAssistantContent(innerMsg)
-			if textContent == "" && len(toolCalls) == 0 {
-				continue
-			}
+			textContent, thinkingText, toolCalls := extractCodeBuddyAssistantContent(innerMsg)
 
 			msg := ParsedMessage{
 				Ordinal:       ordinal,
@@ -149,12 +153,18 @@ func parseCodeBuddySession(indexPath, projectHint, machine string) (*ParsedSessi
 				Timestamp:     ts,
 				ContentLength: len(textContent),
 				Model:         msgModel,
+				ThinkingText:  thinkingText,
+				HasThinking:   thinkingText != "",
 			}
+			msg.ContentLength += len(thinkingText)
 			if len(toolCalls) > 0 {
 				msg.HasToolUse = true
 				msg.ToolCalls = toolCalls
 			}
 			applyCodeBuddyUsage(&msg, extraRoot)
+			if textContent == "" && thinkingText == "" && len(toolCalls) == 0 && len(msg.TokenUsage) == 0 {
+				continue
+			}
 			messages = append(messages, msg)
 			ordinal++
 
@@ -183,7 +193,7 @@ func parseCodeBuddySession(indexPath, projectHint, machine string) (*ParsedSessi
 	}
 
 	project := projectHint
-	if project == "" && cwd != "" {
+	if cwd != "" {
 		project = ExtractProjectFromCwd(cwd)
 	}
 	if project == "" {
@@ -232,10 +242,11 @@ func readCodeBuddyWorkspaceMetadata(wsDir, sessionID string) (title string, crea
 }
 
 func extractCodeBuddyUserContent(innerMsg gjson.Result, extraRoot gjson.Result) (content, cwd string) {
-	// First check if raw input query is preserved in extra.sourceContentBlocks
+	// Preserve every source text block, but still extract cwd from the envelope.
+	var sourceTexts []string
 	for _, blk := range extraRoot.Get("sourceContentBlocks").Array() {
-		if text := blk.Get("text").Str; text != "" {
-			return strings.TrimSpace(text), ""
+		if text := blk.Get("text").Str; strings.TrimSpace(text) != "" {
+			sourceTexts = append(sourceTexts, text)
 		}
 	}
 
@@ -252,8 +263,12 @@ func extractCodeBuddyUserContent(innerMsg gjson.Result, extraRoot gjson.Result) 
 	if idx := strings.Index(fullRaw, "Workspace Folder: "); idx != -1 {
 		rest := fullRaw[idx+len("Workspace Folder: "):]
 		if newline := strings.IndexAny(rest, "\r\n"); newline != -1 {
-			cwd = strings.TrimSpace(rest[:newline])
+			rest = rest[:newline]
 		}
+		cwd = strings.TrimSpace(strings.SplitN(rest, "</user_info>", 2)[0])
+	}
+	if len(sourceTexts) > 0 {
+		return strings.TrimSpace(strings.Join(sourceTexts, "\n")), cwd
 	}
 
 	// Try extracting user query from <user_query> tags
@@ -264,11 +279,19 @@ func extractCodeBuddyUserContent(innerMsg gjson.Result, extraRoot gjson.Result) 
 	return strings.TrimSpace(fullRaw), cwd
 }
 
-func extractCodeBuddyAssistantContent(innerMsg gjson.Result) (textContent string, toolCalls []ParsedToolCall) {
-	var texts []string
+func extractCodeBuddyAssistantContent(innerMsg gjson.Result) (textContent, thinkingText string, toolCalls []ParsedToolCall) {
+	var texts, thoughts []string
 	for _, blk := range innerMsg.Get("content").Array() {
 		bType := blk.Get("type").Str
 		switch bType {
+		case "reasoning", "thinking":
+			text := blk.Get("text").Str
+			if text == "" {
+				text = blk.Get("thinking").Str
+			}
+			if text != "" {
+				thoughts = append(thoughts, text)
+			}
 		case "text":
 			if t := blk.Get("text").Str; t != "" {
 				texts = append(texts, t)
@@ -291,7 +314,7 @@ func extractCodeBuddyAssistantContent(innerMsg gjson.Result) (textContent string
 			})
 		}
 	}
-	return strings.TrimSpace(strings.Join(texts, "\n")), toolCalls
+	return strings.TrimSpace(strings.Join(texts, "\n")), strings.TrimSpace(strings.Join(thoughts, "\n")), toolCalls
 }
 
 func extractCodeBuddyToolResults(innerMsg gjson.Result, extraRoot gjson.Result) []ParsedToolResult {
@@ -353,17 +376,18 @@ func applyCodeBuddyUsage(msg *ParsedMessage, extraRoot gjson.Result) {
 	cachedTokens := int(extraRoot.Get("lastStepCachedInputTokens").Int())
 	thinkingTokens := int(extraRoot.Get("statsSnapshot.thinkingTokens").Int())
 
-	hasInput := extraRoot.Get("lastStepInputTokens").Exists()
-	hasOutput := extraRoot.Get("lastStepOutputTokens").Exists()
-	hasCached := extraRoot.Get("lastStepCachedInputTokens").Exists()
+	hasInput := extraRoot.Get("lastStepInputTokens").Type == gjson.Number && inputTokens >= 0
+	hasOutput := extraRoot.Get("lastStepOutputTokens").Type == gjson.Number && outputTokens >= 0
+	hasCached := extraRoot.Get("lastStepCachedInputTokens").Type == gjson.Number && cachedTokens >= 0
+	hasThinking := extraRoot.Get("statsSnapshot.thinkingTokens").Type == gjson.Number && thinkingTokens >= 0
 
-	if !hasInput && !hasOutput && !hasCached {
+	if !hasInput && !hasOutput && !hasCached && !hasThinking {
 		return
 	}
 
 	netInput := inputTokens
-	if netInput >= cachedTokens && cachedTokens > 0 {
-		netInput -= cachedTokens
+	if hasCached && cachedTokens > 0 {
+		netInput = max(0, netInput-cachedTokens)
 	}
 
 	normalized := map[string]int{}
@@ -373,10 +397,10 @@ func applyCodeBuddyUsage(msg *ParsedMessage, extraRoot gjson.Result) {
 	if hasOutput {
 		normalized["output_tokens"] = outputTokens
 	}
-	if hasCached && cachedTokens > 0 {
+	if hasCached {
 		normalized["cache_read_input_tokens"] = cachedTokens
 	}
-	if thinkingTokens > 0 {
+	if hasThinking {
 		normalized["reasoning_tokens"] = thinkingTokens
 	}
 
@@ -386,10 +410,14 @@ func applyCodeBuddyUsage(msg *ParsedMessage, extraRoot gjson.Result) {
 	}
 
 	msg.TokenUsage = j
-	msg.OutputTokens = outputTokens
+	if hasOutput {
+		msg.OutputTokens = outputTokens
+	}
 	msg.HasOutputTokens = hasOutput
-	msg.ContextTokens = inputTokens
-	msg.HasContextTokens = hasInput || hasCached
+	if hasInput {
+		msg.ContextTokens = inputTokens
+	}
+	msg.HasContextTokens = hasInput
 }
 
 func parseCodeBuddyTimestamp(s string) time.Time {

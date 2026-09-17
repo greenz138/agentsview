@@ -17,8 +17,12 @@ func newCodeBuddyProviderFactory(def AgentDef) ProviderFactory {
 	)
 }
 
-func newCodeBuddySourceSet(roots []string) JSONLSourceSet {
-	return NewJSONLSourceSet(AgentCodeBuddy, roots,
+type codeBuddySourceSet struct {
+	JSONLSourceSet
+}
+
+func newCodeBuddySourceSet(roots []string) codeBuddySourceSet {
+	return codeBuddySourceSet{NewJSONLSourceSet(AgentCodeBuddy, roots,
 		WithRecursive(),
 		WithExtensions(".json"),
 		WithContentHashing(),
@@ -30,7 +34,63 @@ func newCodeBuddySourceSet(roots []string) JSONLSourceSet {
 		WithForceReplace(),
 		WithCompanionFiles(codeBuddyCompanionFiles),
 		WithCompanionTranscript(codeBuddyCompanionTranscript),
-	)
+	)}
+}
+
+// Workspace metadata belongs to every session in that workspace. Resolve only
+// its immediate children, and derive message owners even after a file is gone.
+func (s codeBuddySourceSet) SourcesForChangedPath(ctx context.Context, req ChangedPathRequest) ([]SourceRef, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	path := filepath.Clean(req.Path)
+	allowed := false
+	for _, root := range s.roots {
+		if s.pathAllowedByRoot(root, path) && (req.WatchRoot == "" || samePath(root, req.WatchRoot)) {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		return nil, nil
+	}
+	if filepath.Ext(path) == ".json" && filepath.Base(filepath.Dir(path)) == "messages" {
+		req.Path = filepath.Join(filepath.Dir(filepath.Dir(path)), "index.json")
+		return s.JSONLSourceSet.SourcesForChangedPath(ctx, req)
+	}
+	wsDir := filepath.Dir(path)
+	if filepath.Base(path) == "index.json" && filepath.Base(filepath.Dir(wsDir)) == "history" {
+		entries, err := os.ReadDir(wsDir)
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		var sources []SourceRef
+		for _, entry := range entries {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			if !entry.IsDir() {
+				continue
+			}
+			child := req
+			child.Path = filepath.Join(wsDir, entry.Name(), "index.json")
+			// Only existing sessions own workspace metadata; a metadata event
+			// must not manufacture tombstones for unrelated directories.
+			if _, err := os.Stat(child.Path); os.IsNotExist(err) {
+				continue
+			}
+			found, err := s.JSONLSourceSet.SourcesForChangedPath(ctx, child)
+			if err != nil {
+				return nil, err
+			}
+			sources = append(sources, found...)
+		}
+		return sources, nil
+	}
+	return s.JSONLSourceSet.SourcesForChangedPath(ctx, req)
 }
 
 func codeBuddyParseFile(
@@ -45,6 +105,12 @@ func codeBuddyParseFile(
 	}
 	if req.Fingerprint.Hash != "" {
 		sess.File.Hash = req.Fingerprint.Hash
+	}
+	if req.Fingerprint.Size > 0 {
+		sess.File.Size = req.Fingerprint.Size
+	}
+	if req.Fingerprint.MTimeNS > 0 {
+		sess.File.Mtime = req.Fingerprint.MTimeNS
 	}
 	return []ParseResult{{Session: *sess, Messages: msgs}}, nil, nil
 }

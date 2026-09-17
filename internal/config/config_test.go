@@ -24,6 +24,32 @@ import (
 
 const configFileName = "config.toml"
 
+func TestCodeBuddyDefaultAndOverride(t *testing.T) {
+	home := canonicalTempDir(t)
+	setTestHome(t, home)
+	for _, appData := range []string{"", "relative", canonicalTempDir(t)} {
+		t.Run(appData, func(t *testing.T) {
+			t.Setenv("LOCALAPPDATA", appData)
+			t.Setenv("CODEBUDDY_DIR", "")
+			cfg, err := Default()
+			require.NoError(t, err)
+			dirs := cfg.ResolveDirs(parser.AgentCodeBuddy)
+			require.Len(t, dirs, 3)
+			expected := filepath.Join(home, "AppData", "Local", "CodeBuddyExtension", "Data")
+			if runtime.GOOS == "windows" && filepath.IsAbs(appData) {
+				expected = filepath.Join(appData, "CodeBuddyExtension", "Data")
+			}
+			assert.Equal(t, expected, dirs[0])
+			assert.Equal(t, filepath.Join(home, "Library", "Application Support", "CodeBuddyExtension", "Data"), dirs[1])
+			assert.Equal(t, filepath.Join(home, ".config", "CodeBuddyExtension", "Data"), dirs[2])
+			custom := canonicalTempDir(t)
+			t.Setenv("CODEBUDDY_DIR", custom)
+			cfg.loadEnv()
+			assert.Equal(t, []string{custom}, cfg.ResolveDirs(parser.AgentCodeBuddy))
+		})
+	}
+}
+
 func skipIfNotUnix(t *testing.T) {
 	t.Helper()
 	if runtime.GOOS == "windows" {

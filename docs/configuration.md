@@ -921,6 +921,20 @@ export ZED_DIR=~/custom/zed
 export ZENCODER_DIR=~/custom/zencoder
 ```
 
+### CodeBuddy
+
+CodeBuddy reads `history` beneath the configured `CodeBuddyExtension/Data`
+directory. On Windows the default data directory follows `%LOCALAPPDATA%`, with
+`~/AppData/Local` as a fallback when that variable is unset or not absolute.
+macOS uses `~/Library/Application Support/CodeBuddyExtension/Data`; Linux uses
+`~/.config/CodeBuddyExtension/Data`. `CODEBUDDY_DIR` replaces these defaults.
+
+Session projects use the working directory when present, falling back to the
+workspace identifier. Message changes, including deletion, refresh their owning
+session; workspace index changes refresh sessions in that workspace. See the
+[format evidence](internal/session-format-sources.md#codebuddy-codebuddy) for
+usage accounting assumptions and verification limits.
+
 ### Evener
 
 Evener discovery reads semantic transcript **format v2** under
