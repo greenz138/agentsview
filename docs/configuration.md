@@ -932,7 +932,7 @@ macOS uses `~/Library/Application Support/CodeBuddyExtension/Data`; Linux uses
 Session projects use the working directory when present, falling back to the
 workspace identifier. Message changes, including deletion, refresh their owning
 session; workspace index changes refresh sessions in that workspace. See the
-[format evidence](internal/session-format-sources.md#codebuddy-codebuddy) for
+[format evidence](internal/session-format-sources.md#codebuddy) for
 usage accounting assumptions and verification limits.
 
 ### Evener

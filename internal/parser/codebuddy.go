@@ -256,8 +256,7 @@ func extractCodeBuddyUserContent(innerMsg gjson.Result, extraRoot gjson.Result) 
 	fullRaw := strings.Join(rawTextParts, "\n")
 
 	// Try extracting cwd from <user_info>
-	if idx := strings.Index(fullRaw, "Workspace Folder: "); idx != -1 {
-		rest := fullRaw[idx+len("Workspace Folder: "):]
+	if _, rest, ok := strings.Cut(fullRaw, "Workspace Folder: "); ok {
 		if newline := strings.IndexAny(rest, "\r\n"); newline != -1 {
 			rest = rest[:newline]
 		}
